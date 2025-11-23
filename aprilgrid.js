@@ -2,11 +2,22 @@
 // Based on https://github.com/safijari/apriltags2_ethz/blob/master/aprilgrid/createTargetPDF.py
 
 class AprilGridGenerator {
-    constructor(canvas) {
-        this.canvas = canvas;
-        this.ctx = canvas.getContext('2d');
+    constructor(svgElement) {
+        this.svg = svgElement;
         this.dpi = 96; // pixels per inch
         this.cmToPixels = this.dpi / 2.54; // conversion factor
+        this.NS = 'http://www.w3.org/2000/svg';
+    }
+
+    // Create an SVG rectangle element
+    createRect(x, y, width, height, fill = 'black') {
+        const rect = document.createElementNS(this.NS, 'rect');
+        rect.setAttribute('x', x);
+        rect.setAttribute('y', y);
+        rect.setAttribute('width', width);
+        rect.setAttribute('height', height);
+        rect.setAttribute('fill', fill);
+        return rect;
     }
 
     // Generate a single AprilTag
@@ -19,11 +30,10 @@ class AprilGridGenerator {
         const borderSize = borderBits * bitSquareSize;
 
         // Draw borders (2x bit size, all black)
-        this.ctx.fillStyle = 'black';
-        this.ctx.fillRect(xPos, yPos, metricSize, borderSize); // bottom
-        this.ctx.fillRect(xPos, yPos + metricSize - borderSize, metricSize, borderSize); // top
-        this.ctx.fillRect(xPos + metricSize - borderSize, yPos, borderSize, metricSize); // right
-        this.ctx.fillRect(xPos, yPos, borderSize, metricSize); // left
+        this.svg.appendChild(this.createRect(xPos, yPos, metricSize, borderSize)); // bottom
+        this.svg.appendChild(this.createRect(xPos, yPos + metricSize - borderSize, metricSize, borderSize)); // top
+        this.svg.appendChild(this.createRect(xPos + metricSize - borderSize, yPos, borderSize, metricSize)); // right
+        this.svg.appendChild(this.createRect(xPos, yPos, borderSize, metricSize)); // left
 
         // Create matrix of code
         const codeMatrix = [];
@@ -41,16 +51,15 @@ class AprilGridGenerator {
         const rotatedMatrix = this.rotateMatrix90(this.rotateMatrix90(codeMatrix));
 
         // Draw bits
-        this.ctx.fillStyle = 'black';
         for (let i = 0; i < sqrtBits; i++) {
             for (let j = 0; j < sqrtBits; j++) {
                 if (rotatedMatrix[i][j]) {
-                    this.ctx.fillRect(
+                    this.svg.appendChild(this.createRect(
                         xPos + (j + borderBits) * bitSquareSize,
                         yPos + ((borderBits - 1) + sqrtBits - i) * bitSquareSize,
                         bitSquareSize,
                         bitSquareSize
-                    );
+                    ));
                 }
             }
         }
@@ -65,7 +74,7 @@ class AprilGridGenerator {
         ];
 
         for (const point of corners) {
-            this.ctx.fillRect(point[0], point[1], metricSquareSize, metricSquareSize);
+            this.svg.appendChild(this.createRect(point[0], point[1], metricSquareSize, metricSquareSize));
         }
     }
 
@@ -94,7 +103,7 @@ class AprilGridGenerator {
         const tagSizePixels = tagSize * 100 * this.cmToPixels;
         const spacingPixels = tagSpacing * tagSizePixels;
         
-        // Calculate canvas size
+        // Calculate SVG size
         const gridWidth = nCols * tagSizePixels + (nCols - 1) * spacingPixels;
         const gridHeight = nRows * tagSizePixels + (nRows - 1) * spacingPixels;
         
@@ -102,16 +111,19 @@ class AprilGridGenerator {
         const marginX = tagSpacing * tagSizePixels * 2;
         const marginY = tagSpacing * tagSizePixels * 2;
         
-        const canvasWidth = gridWidth + marginX * 2;
-        const canvasHeight = gridHeight + marginY * 2;
+        const svgWidth = gridWidth + marginX * 2;
+        const svgHeight = gridHeight + marginY * 2;
 
-        // Set canvas size
-        this.canvas.width = canvasWidth;
-        this.canvas.height = canvasHeight;
+        // Clear and set SVG size
+        while (this.svg.firstChild) {
+            this.svg.removeChild(this.svg.firstChild);
+        }
+        this.svg.setAttribute('width', svgWidth);
+        this.svg.setAttribute('height', svgHeight);
+        this.svg.setAttribute('viewBox', `0 0 ${svgWidth} ${svgHeight}`);
 
-        // Fill with white background
-        this.ctx.fillStyle = 'white';
-        this.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+        // Add white background
+        this.svg.appendChild(this.createRect(0, 0, svgWidth, svgHeight, 'white'));
 
         // Draw tags
         const numTags = nCols * nRows;
@@ -153,9 +165,7 @@ class AprilGridGenerator {
             axisPos[0] + arrowLength, axisPos[1],
             arrowSize, 'red'
         );
-        this.ctx.fillStyle = 'red';
-        this.ctx.font = `${tagSizePixels * 0.15}px Arial`;
-        this.ctx.fillText('x', axisPos[0] + arrowLength + 5, axisPos[1] + 5);
+        this.drawText('x', axisPos[0] + arrowLength + 5, axisPos[1] + 5, tagSizePixels * 0.15, 'red');
 
         // Y-axis (green)
         this.drawArrow(
@@ -163,21 +173,30 @@ class AprilGridGenerator {
             axisPos[0], axisPos[1] + arrowLength,
             arrowSize, 'green'
         );
-        this.ctx.fillStyle = 'green';
-        this.ctx.fillText('y', axisPos[0] - 10, axisPos[1] + arrowLength + 5);
+        this.drawText('y', axisPos[0] - 10, axisPos[1] + arrowLength + 5, tagSizePixels * 0.15, 'green');
 
         // Caption
         const caption = `${nCols}x${nRows} tags, size=${(tagSize * 100).toFixed(2)}cm, spacing=${(tagSpacing * tagSize * 100).toFixed(2)}cm`;
-        this.ctx.fillStyle = 'black';
-        this.ctx.font = `${tagSizePixels * 0.1}px Arial`;
-        this.ctx.fillText(caption, axisPos[0] + arrowLength * 2, axisPos[1] + arrowLength * 0.5);
+        this.drawText(caption, axisPos[0] + arrowLength * 2, axisPos[1] + arrowLength * 0.5, tagSizePixels * 0.1, 'black');
 
         return {
-            width: canvasWidth,
-            height: canvasHeight,
+            width: svgWidth,
+            height: svgHeight,
             tagSizePixels: tagSizePixels,
             numTags: Math.min(numTags, familyData.codes.length)
         };
+    }
+
+    // Draw text
+    drawText(text, x, y, fontSize, fill = 'black') {
+        const textEl = document.createElementNS(this.NS, 'text');
+        textEl.setAttribute('x', x);
+        textEl.setAttribute('y', y);
+        textEl.setAttribute('font-size', fontSize);
+        textEl.setAttribute('font-family', 'Arial');
+        textEl.setAttribute('fill', fill);
+        textEl.textContent = text;
+        this.svg.appendChild(textEl);
     }
 
     // Draw an arrow
@@ -185,33 +204,31 @@ class AprilGridGenerator {
         const angle = Math.atan2(y2 - y1, x2 - x1);
 
         // Draw line
-        this.ctx.beginPath();
-        this.ctx.moveTo(x1, y1);
-        this.ctx.lineTo(x2, y2);
-        this.ctx.strokeStyle = color;
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
+        const line = document.createElementNS(this.NS, 'line');
+        line.setAttribute('x1', x1);
+        line.setAttribute('y1', y1);
+        line.setAttribute('x2', x2);
+        line.setAttribute('y2', y2);
+        line.setAttribute('stroke', color);
+        line.setAttribute('stroke-width', 2);
+        this.svg.appendChild(line);
 
         // Draw arrowhead
-        this.ctx.beginPath();
-        this.ctx.moveTo(x2, y2);
-        this.ctx.lineTo(
-            x2 - headSize * Math.cos(angle - Math.PI / 6),
-            y2 - headSize * Math.sin(angle - Math.PI / 6)
-        );
-        this.ctx.lineTo(
-            x2 - headSize * Math.cos(angle + Math.PI / 6),
-            y2 - headSize * Math.sin(angle + Math.PI / 6)
-        );
-        this.ctx.closePath();
-        this.ctx.fillStyle = color;
-        this.ctx.fill();
+        const arrowHead = document.createElementNS(this.NS, 'polygon');
+        const points = [
+            [x2, y2],
+            [x2 - headSize * Math.cos(angle - Math.PI / 6), y2 - headSize * Math.sin(angle - Math.PI / 6)],
+            [x2 - headSize * Math.cos(angle + Math.PI / 6), y2 - headSize * Math.sin(angle + Math.PI / 6)]
+        ];
+        arrowHead.setAttribute('points', points.map(p => p.join(',')).join(' '));
+        arrowHead.setAttribute('fill', color);
+        this.svg.appendChild(arrowHead);
     }
 }
 
 // Global functions for UI interaction
 function generateGrid() {
-    const canvas = document.getElementById('canvas');
+    const svg = document.getElementById('aprilgrid-svg');
     const tagFamily = document.getElementById('tagFamily').value;
     const cols = parseInt(document.getElementById('cols').value);
     const rows = parseInt(document.getElementById('rows').value);
@@ -233,14 +250,14 @@ function generateGrid() {
     }
 
     try {
-        const generator = new AprilGridGenerator(canvas);
+        const generator = new AprilGridGenerator(svg);
         const result = generator.generateAprilBoard(cols, rows, tagSize, tagSpacing, tagFamily);
         
         // Update info
         const info = document.getElementById('info');
         info.innerHTML = `
             <strong>Generated:</strong> ${result.numTags} tags<br>
-            <strong>Canvas size:</strong> ${Math.round(result.width)}x${Math.round(result.height)} pixels<br>
+            <strong>SVG size:</strong> ${Math.round(result.width)}x${Math.round(result.height)} pixels<br>
             <strong>Tag size:</strong> ${Math.round(result.tagSizePixels)} pixels (${(tagSize * 100).toFixed(2)} cm)<br>
             <strong>Family:</strong> ${tagFamily}
         `;
@@ -250,55 +267,11 @@ function generateGrid() {
     }
 }
 
-function downloadPDF() {
-    const canvas = document.getElementById('canvas');
-    
-    if (!canvas.width || !canvas.height) {
-        alert('Please generate a grid first');
-        return;
-    }
-
-    try {
-        // For now, download as PNG
-        // In a production environment, you could use jsPDF or server-side PDF generation
-        const tagFamily = document.getElementById('tagFamily').value;
-        const cols = document.getElementById('cols').value;
-        const rows = document.getElementById('rows').value;
-        
-        // Create high-resolution canvas for PDF-quality output
-        const scale = 3; // 3x resolution for better quality
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = canvas.width * scale;
-        tempCanvas.height = canvas.height * scale;
-        const tempCtx = tempCanvas.getContext('2d');
-        
-        // Scale and draw
-        tempCtx.scale(scale, scale);
-        tempCtx.drawImage(canvas, 0, 0);
-        
-        // Convert to blob and download
-        tempCanvas.toBlob(function(blob) {
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `apriltag_${tagFamily}_${cols}x${rows}.png`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }, 'image/png');
-        
-    } catch (error) {
-        alert('Error generating download: ' + error.message);
-        console.error(error);
-    }
-}
-
-// Alternative: Download as SVG for vector graphics
+// Download as SVG
 function downloadSVG() {
-    const canvas = document.getElementById('canvas');
+    const svg = document.getElementById('aprilgrid-svg');
     
-    if (!canvas.width || !canvas.height) {
+    if (!svg.getAttribute('width')) {
         alert('Please generate a grid first');
         return;
     }
@@ -308,16 +281,11 @@ function downloadSVG() {
         const cols = document.getElementById('cols').value;
         const rows = document.getElementById('rows').value;
         
-        // Get canvas data as PNG
-        const imgData = canvas.toDataURL('image/png');
+        // Serialize SVG
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(svg);
         
-        // Create SVG with embedded PNG
-        const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg width="${canvas.width}" height="${canvas.height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-    <image width="${canvas.width}" height="${canvas.height}" xlink:href="${imgData}"/>
-</svg>`;
-        
-        const blob = new Blob([svg], { type: 'image/svg+xml' });
+        const blob = new Blob([svgString], { type: 'image/svg+xml' });
         const url = URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
@@ -328,6 +296,94 @@ function downloadSVG() {
         URL.revokeObjectURL(url);
     } catch (error) {
         alert('Error generating SVG: ' + error.message);
+        console.error(error);
+    }
+}
+
+// Download as PDF using svg2pdf.js
+async function downloadPDF() {
+    const svg = document.getElementById('aprilgrid-svg');
+    
+    if (!svg.getAttribute('width')) {
+        alert('Please generate a grid first');
+        return;
+    }
+
+    try {
+        const tagFamily = document.getElementById('tagFamily').value;
+        const cols = document.getElementById('cols').value;
+        const rows = document.getElementById('rows').value;
+        
+        // Check if jsPDF and svg2pdf are loaded
+        if (typeof jspdf === 'undefined' || typeof svg2pdf === 'undefined') {
+            // Fallback: Open print dialog with SVG
+            const printWindow = window.open('', '_blank');
+            const svgClone = svg.cloneNode(true);
+            
+            const width = svg.getAttribute('width');
+            const height = svg.getAttribute('height');
+            
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>AprilTag Grid - ${tagFamily} ${cols}x${rows}</title>
+                    <style>
+                        @page {
+                            margin: 0;
+                            size: ${width}px ${height}px;
+                        }
+                        body {
+                            margin: 0;
+                            padding: 0;
+                        }
+                        svg {
+                            display: block;
+                        }
+                    </style>
+                </head>
+                <body>
+                    ${svgClone.outerHTML}
+                    <script>
+                        window.onload = function() {
+                            window.print();
+                        };
+                    </script>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            return;
+        }
+
+        const width = parseFloat(svg.getAttribute('width'));
+        const height = parseFloat(svg.getAttribute('height'));
+        
+        // Convert pixels to mm (assuming 96 DPI)
+        const widthMm = width * 25.4 / 96;
+        const heightMm = height * 25.4 / 96;
+        
+        // Create PDF
+        const { jsPDF } = jspdf;
+        const orientation = widthMm > heightMm ? 'landscape' : 'portrait';
+        const pdf = new jsPDF({
+            orientation: orientation,
+            unit: 'mm',
+            format: [widthMm, heightMm]
+        });
+
+        // Convert SVG to PDF
+        await svg2pdf(svg, pdf, {
+            x: 0,
+            y: 0,
+            width: widthMm,
+            height: heightMm
+        });
+
+        // Download
+        pdf.save(`apriltag_${tagFamily}_${cols}x${rows}.pdf`);
+    } catch (error) {
+        alert('Error generating PDF: ' + error.message);
         console.error(error);
     }
 }

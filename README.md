@@ -1,9 +1,10 @@
 # AprilTags Grid Generator
 
-A static web application for generating AprilTag calibration targets for camera calibration.
+A static web application for generating AprilTag calibration targets for camera calibration using **vector graphics (SVG)**.
 
 ## Features
 
+- **Vector Graphics**: Pure SVG output for perfect scaling and printing
 - Generate customizable AprilTag grids
 - Support for multiple tag families:
   - **t36h11** (36 bits, HD=11) - 587 tags available
@@ -14,10 +15,10 @@ A static web application for generating AprilTag calibration targets for camera 
   - Number of columns and rows
   - Tag size (in meters)
   - Tag spacing (as fraction of tag size)
-- Real-time preview on canvas
+- Real-time preview with SVG rendering
 - Download options:
-  - High-resolution PNG (3x resolution for printing)
-  - SVG (vector format)
+  - **SVG** (vector format - recommended for best quality)
+  - **PDF** (vector PDF for direct printing)
 - Coordinate axes display (x in red, y in green)
 - Symmetric corner squares for improved motion blur resistance
 
@@ -56,23 +57,30 @@ python3 -m http.server 8080
 
 1. Click **"Generate Preview"** to create your grid
 2. Choose download format:
-   - **Download PNG**: High-resolution raster image (3x canvas resolution)
-   - **Download SVG**: Vector format with embedded image
+   - **Download SVG**: Vector format (recommended) - perfect for any size
+   - **Download PDF**: Vector PDF for direct printing (uses browser print when libraries unavailable)
 
 ### Printing
 
 For accurate calibration:
-1. Use the PNG download for best quality
-2. Print at actual size (disable "fit to page")
-3. Use high-quality printer settings
-4. Measure printed tags to verify size matches configuration
-5. Mount on flat, rigid surface
+1. Use the SVG or PDF download for best quality
+2. SVG files maintain perfect quality at any scale
+3. Print at actual size (disable "fit to page")
+4. Use high-quality printer settings
+5. Measure printed tags to verify size matches configuration
+6. Mount on flat, rigid surface
 
 ## Technical Details
 
 Based on the Python implementation from [apriltags2_ethz](https://github.com/safijari/apriltags2_ethz):
 - `createTargetPDF.py` - Grid generation logic
 - `tagFamilies.py` - Tag family codes
+
+### Implementation
+
+- **SVG-based rendering**: All graphics generated as vector SVG elements
+- **No Canvas**: Pure SVG for infinite scalability
+- **PDF generation**: Uses svg2pdf.js when available, falls back to browser print
 
 ### Tag Structure
 
@@ -90,7 +98,7 @@ Each AprilTag consists of:
 
 ## Browser Compatibility
 
-Works in all modern browsers with HTML5 Canvas support:
+Works in all modern browsers with SVG support:
 - Chrome/Edge
 - Firefox
 - Safari

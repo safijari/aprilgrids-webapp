@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AprilTags Grid Generator</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -201,7 +200,8 @@
                 </div>
 
                 <button onclick="generateGrid()">Generate Preview</button>
-                <button onclick="downloadPDF()">Download PDF</button>
+                <button onclick="downloadPDF()">Download PNG</button>
+                <button onclick="downloadSVG()" style="margin-top: 5px;">Download SVG</button>
 
                 <div class="info" id="info">
                     Configure your grid parameters and click "Generate Preview" to see the result.

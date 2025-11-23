@@ -259,35 +259,75 @@ function downloadPDF() {
     }
 
     try {
-        // Get jsPDF from global scope
-        const { jsPDF } = window.jspdf;
-        
-        // Calculate PDF dimensions in mm (A4 or custom)
-        const canvasWidthMm = canvas.width / (96 / 25.4);
-        const canvasHeightMm = canvas.height / (96 / 25.4);
-        
-        // Create PDF with appropriate dimensions
-        const orientation = canvasWidthMm > canvasHeightMm ? 'landscape' : 'portrait';
-        const pdf = new jsPDF({
-            orientation: orientation,
-            unit: 'mm',
-            format: [canvasWidthMm, canvasHeightMm]
-        });
-
-        // Add canvas as image to PDF
-        const imgData = canvas.toDataURL('image/png');
-        pdf.addImage(imgData, 'PNG', 0, 0, canvasWidthMm, canvasHeightMm);
-
-        // Generate filename
+        // For now, download as PNG
+        // In a production environment, you could use jsPDF or server-side PDF generation
         const tagFamily = document.getElementById('tagFamily').value;
         const cols = document.getElementById('cols').value;
         const rows = document.getElementById('rows').value;
-        const filename = `apriltag_${tagFamily}_${cols}x${rows}.pdf`;
-
-        // Download
-        pdf.save(filename);
+        
+        // Create high-resolution canvas for PDF-quality output
+        const scale = 3; // 3x resolution for better quality
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width * scale;
+        tempCanvas.height = canvas.height * scale;
+        const tempCtx = tempCanvas.getContext('2d');
+        
+        // Scale and draw
+        tempCtx.scale(scale, scale);
+        tempCtx.drawImage(canvas, 0, 0);
+        
+        // Convert to blob and download
+        tempCanvas.toBlob(function(blob) {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `apriltag_${tagFamily}_${cols}x${rows}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }, 'image/png');
+        
     } catch (error) {
-        alert('Error generating PDF: ' + error.message);
+        alert('Error generating download: ' + error.message);
+        console.error(error);
+    }
+}
+
+// Alternative: Download as SVG for vector graphics
+function downloadSVG() {
+    const canvas = document.getElementById('canvas');
+    
+    if (!canvas.width || !canvas.height) {
+        alert('Please generate a grid first');
+        return;
+    }
+
+    try {
+        const tagFamily = document.getElementById('tagFamily').value;
+        const cols = document.getElementById('cols').value;
+        const rows = document.getElementById('rows').value;
+        
+        // Get canvas data as PNG
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Create SVG with embedded PNG
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="${canvas.width}" height="${canvas.height}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <image width="${canvas.width}" height="${canvas.height}" xlink:href="${imgData}"/>
+</svg>`;
+        
+        const blob = new Blob([svg], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `apriltag_${tagFamily}_${cols}x${rows}.svg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        alert('Error generating SVG: ' + error.message);
         console.error(error);
     }
 }

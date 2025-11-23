@@ -311,47 +311,45 @@ async function downloadPDF() {
 
     try {
         const tagFamily = document.getElementById('tagFamily').value;
-        const cols = document.getElementById('cols').value;
-        const rows = document.getElementById('rows').value;
+        const cols = parseInt(document.getElementById('cols').value);
+        const rows = parseInt(document.getElementById('rows').value);
         
-        // Check if jsPDF and svg2pdf are loaded
+        // Sanitize values for safe HTML insertion
+        const sanitize = (str) => String(str).replace(/[<>"'&]/g, (char) => {
+            const entities = {'<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;', '&': '&amp;'};
+            return entities[char];
+        });
+        
+        const safeTagFamily = sanitize(tagFamily);
+        const safeCols = sanitize(cols);
+        const safeRows = sanitize(rows);
+        
+        // Check if jsPDF and svg2pdf are loaded with proper error handling
         if (typeof jspdf === 'undefined' || typeof svg2pdf === 'undefined') {
             // Fallback: Open print dialog with SVG
             const printWindow = window.open('', '_blank');
+            
+            // Check if popup was blocked
+            if (!printWindow || printWindow.closed || typeof printWindow.closed === 'undefined') {
+                alert('Popup blocked. Please allow popups for this site to use the print function, or download as SVG instead.');
+                return;
+            }
+            
             const svgClone = svg.cloneNode(true);
             
             const width = svg.getAttribute('width');
             const height = svg.getAttribute('height');
             
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>AprilTag Grid - ${tagFamily} ${cols}x${rows}</title>
-                    <style>
-                        @page {
-                            margin: 0;
-                            size: ${width}px ${height}px;
-                        }
-                        body {
-                            margin: 0;
-                            padding: 0;
-                        }
-                        svg {
-                            display: block;
-                        }
-                    </style>
-                </head>
-                <body>
-                    ${svgClone.outerHTML}
-                    <script>
-                        window.onload = function() {
-                            window.print();
-                        };
-                    </script>
-                </body>
-                </html>
-            `);
+            // Use textContent for safe insertion
+            printWindow.document.write('<!DOCTYPE html><html><head>');
+            printWindow.document.write('<meta charset="UTF-8">');
+            printWindow.document.write('<title>AprilTag Grid - ' + safeTagFamily + ' ' + safeCols + 'x' + safeRows + '</title>');
+            printWindow.document.write('<style>@page { margin: 0; size: ' + width + 'px ' + height + 'px; }');
+            printWindow.document.write('body { margin: 0; padding: 0; } svg { display: block; }</style>');
+            printWindow.document.write('</head><body>');
+            printWindow.document.write(svgClone.outerHTML);
+            printWindow.document.write('<script>window.onload = function() { window.print(); };</script>');
+            printWindow.document.write('</body></html>');
             printWindow.document.close();
             return;
         }
@@ -363,25 +361,34 @@ async function downloadPDF() {
         const widthMm = width * 25.4 / 96;
         const heightMm = height * 25.4 / 96;
         
-        // Create PDF
-        const { jsPDF } = jspdf;
-        const orientation = widthMm > heightMm ? 'landscape' : 'portrait';
-        const pdf = new jsPDF({
-            orientation: orientation,
-            unit: 'mm',
-            format: [widthMm, heightMm]
-        });
+        // Create PDF with error handling
+        try {
+            const { jsPDF } = jspdf;
+            if (!jsPDF) {
+                throw new Error('jsPDF not properly loaded');
+            }
+            
+            const orientation = widthMm > heightMm ? 'landscape' : 'portrait';
+            const pdf = new jsPDF({
+                orientation: orientation,
+                unit: 'mm',
+                format: [widthMm, heightMm]
+            });
 
-        // Convert SVG to PDF
-        await svg2pdf(svg, pdf, {
-            x: 0,
-            y: 0,
-            width: widthMm,
-            height: heightMm
-        });
+            // Convert SVG to PDF
+            await svg2pdf(svg, pdf, {
+                x: 0,
+                y: 0,
+                width: widthMm,
+                height: heightMm
+            });
 
-        // Download
-        pdf.save(`apriltag_${tagFamily}_${cols}x${rows}.pdf`);
+            // Download
+            pdf.save(`apriltag_${tagFamily}_${cols}x${rows}.pdf`);
+        } catch (pdfError) {
+            console.error('PDF generation error:', pdfError);
+            alert('PDF generation failed. Please try downloading as SVG instead, or use the browser print function.');
+        }
     } catch (error) {
         alert('Error generating PDF: ' + error.message);
         console.error(error);

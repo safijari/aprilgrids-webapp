@@ -176,7 +176,7 @@ class AprilGridGenerator {
         this.drawText('y', axisPos[0] - 10, axisPos[1] + arrowLength + 5, tagSizePixels * 0.15, 'green');
 
         // Caption
-        const caption = `${nCols}x${nRows} tags, size=${(tagSize * 100).toFixed(2)}cm, spacing=${(tagSpacing * tagSize * 100).toFixed(2)}cm`;
+        const caption = `${nCols}x${nRows}`;
         this.drawText(caption, axisPos[0] + arrowLength * 2, axisPos[1] + arrowLength * 0.5, tagSizePixels * 0.1, 'black');
 
         return {
@@ -395,7 +395,14 @@ async function downloadPDF() {
     }
 }
 
-// Generate on page load
+// Generate on page load and on any input change
 window.addEventListener('load', function() {
     generateGrid();
+    
+    // Add event listeners to all input fields to regenerate on change
+    document.getElementById('tagFamily').addEventListener('change', generateGrid);
+    document.getElementById('cols').addEventListener('input', generateGrid);
+    document.getElementById('rows').addEventListener('input', generateGrid);
+    document.getElementById('tagSize').addEventListener('input', generateGrid);
+    document.getElementById('tagSpacing').addEventListener('input', generateGrid);
 });
